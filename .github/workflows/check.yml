@@ -1,0 +1,65 @@
+---
+name: Crawl
+'on':
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+
+  Crawl:
+    name: Crawl
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the codebase.
+        uses: actions/checkout@main
+
+      - name: Crawl the latest IPs list.
+        run: |
+          curl -fsSL "https://stat.ripe.net/data/country-resource-list/data.json?resource=ir" \
+            | jq -r '.data.resources.ipv4[]' \
+            | python split_subnets.py > "ipv4.txt"
+
+      - name: Create Pull Request.
+        if: github.event_name != 'pull_request'
+        id: cpr
+        run: |
+          set -x
+          if [ -n "$(git status --porcelain)" ]; then
+              git switch -c automatic_crawl
+              git add ipv4.txt
+              git config user.email "${{ github.actor }}@users.noreply.github.com"
+              git config user.name "${{ github.actor }}"
+              git commit -m "Automatic Crawl"
+              git push --force -u origin automatic_crawl
+              PR_NUMBER=$(gh pr list --head automatic_crawl --json number --jq '.[0].number')
+              if [ -n "${PR_NUMBER}" ]; then
+                  echo "pull-request-operation=updated" >> $GITHUB_OUTPUT
+                  echo "pull-request-number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+              else
+                  gh pr create --fill
+                  PR_NUMBER=$(gh pr list --head automatic_crawl --json number --jq '.[0].number')
+                  echo "pull-request-operation=created" >> $GITHUB_OUTPUT
+                  echo "pull-request-number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+              fi
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Automerge if only ipv4.txt has been changed
+        if: |
+          steps.cpr.outputs.pull-request-operation == 'created' ||
+          steps.cpr.outputs.pull-request-operation == 'updated'
+        run: |
+          if [[ ! $(git diff automatic_crawl..main --name-only | grep -vE "^ipv4\.txt$") ]]; then
+              gh pr merge --merge --delete-branch "${{ steps.cpr.outputs.pull-request-number }}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
