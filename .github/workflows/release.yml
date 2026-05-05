@@ -6,6 +6,12 @@ name: Release
       - main
     paths:
       - 'ipv4.txt'
+  workflow_run:
+    workflows:
+      - Crawl
+    types:
+      - completed
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,16 +21,37 @@ jobs:
   Release:
     name: Release
     runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Check out the codebase.
         uses: actions/checkout@main
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Create tag and release
         run: |
           git config user.email "${{ github.actor }}@users.noreply.github.com"
           git config user.name "${{ github.actor }}"
+
+          if [ -n "$(git tag --points-at HEAD)" ]; then
+              echo "HEAD is already tagged; skipping release."
+              exit 0
+          fi
+
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+              if git rev-parse HEAD^ >/dev/null 2>&1; then
+                  CHANGED_FILES=$(git diff --name-only HEAD^1 HEAD)
+              else
+                  CHANGED_FILES=$(git show --pretty= --name-only HEAD)
+              fi
+
+              if ! echo "${CHANGED_FILES}" | grep -qx "ipv4.txt"; then
+                  echo "Latest commit did not change ipv4.txt; skipping release."
+                  exit 0
+              fi
+          fi
+
           TODAYDATE=$(date -u "+%Y%m%d")
           SUFFIX=1
           LATEST_TAG=$(git tag --list "${TODAYDATE}-*" | sort -V | tail -n 1)
