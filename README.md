@@ -15,7 +15,6 @@ Or watch repository releases to be notified when `ipv4.txt` changes.
 ## Files
 
 - `ipv4.txt`: Iran IPv4 prefixes, one CIDR per line.
-- `ir.json`: RIPEstat country resource response for Iran.
 
 ## Source
 

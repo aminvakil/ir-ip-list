@@ -27,6 +27,7 @@ jobs:
           jq -er '.data.resources.ipv4[]' ir.json > "ipv4.txt"
           python split_subnets.py ipv4.txt
           test -s "ipv4.txt"
+          rm -f ir.json
 
       - name: Create Pull Request.
         if: github.event_name != 'pull_request'
@@ -34,7 +35,7 @@ jobs:
           set -x
           if [ -n "$(git status --porcelain)" ]; then
               git switch -c automatic_crawl
-              git add ir.json ipv4.txt
+              git add ipv4.txt
               git config user.email "${{ github.actor }}@users.noreply.github.com"
               git config user.name "${{ github.actor }}"
               git commit -m "Automatic Crawl"
