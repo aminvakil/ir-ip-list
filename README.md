@@ -15,6 +15,7 @@ Or watch repository releases to be notified when `ipv4.txt` changes.
 ## Files
 
 - `ipv4.txt`: Iran IPv4 prefixes, one CIDR per line.
+- `ir.json`: RIPEstat country resource response for Iran.
 
 ## Source
 
@@ -27,9 +28,9 @@ https://stat.ripe.net/data/country-resource-list/data.json?resource=ir
 ## Generate
 
 ```bash
-curl -s "https://stat.ripe.net/data/country-resource-list/data.json?resource=ir" \
-  | jq -r '.data.resources.ipv4[]' \
-  | python split_subnets.py > ipv4.txt
+curl -fsSL "https://stat.ripe.net/data/country-resource-list/data.json?resource=ir" -o ir.json
+jq -er '.data.resources.ipv4[]' ir.json > ipv4.txt
+python split_subnets.py ipv4.txt
 ```
 
 `split_subnets.py` converts IPv4 ranges returned by RIPEstat into CIDR blocks. Existing CIDR lines are kept unchanged.
