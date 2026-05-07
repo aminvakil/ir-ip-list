@@ -23,9 +23,13 @@ jobs:
 
       - name: Crawl the latest IPs list.
         run: |
+          set -o pipefail
+          tmpfile=$(mktemp)
           curl -fsSL "https://stat.ripe.net/data/country-resource-list/data.json?resource=ir" \
-            | jq -r '.data.resources.ipv4[]' \
-            | python split_subnets.py > "ipv4.txt"
+            | jq -er '.data.resources.ipv4[]' \
+            | python split_subnets.py > "${tmpfile}"
+          test -s "${tmpfile}"
+          mv "${tmpfile}" "ipv4.txt"
 
       - name: Create Pull Request.
         if: github.event_name != 'pull_request'
